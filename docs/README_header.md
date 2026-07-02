@@ -42,7 +42,7 @@ This demo provisions a secure AWS environment to run HCP Terraform agents on a s
 
 ## How to Conduct the Demo
 
-1. Configure required variables (`tfe_organization`, AWS region, networking, and agent settings).
+1. Configure required variables (`tfe_organization`).
 2. Confirm HCP Terraform workspace authentication is configured for AWS Dynamic Provider Credentials.
 3. Set the HCP Terraform API token as an environment variable (`TFE_TOKEN`) in the execution environment.
 4. Run `terraform init`, `terraform plan`, and `terraform apply`.
@@ -58,47 +58,75 @@ This demo provisions a secure AWS environment to run HCP Terraform agents on a s
 
 ## Permissions
 
-### Required Access by Deployment Phase
+### AWS Permissions
 
-The following access is required to deploy this solution end-to-end.
+To provision the AWS resources managed by this code, the IAM role or user running Terraform needs permissions such as:
 
-#### Deployment 1: AWS Infrastructure Baseline
+- `ec2:DescribeAvailabilityZones`
+- `ec2:DescribeImages`
+- `ec2:DescribeVpcs`
+- `ec2:CreateVpc`
+- `ec2:DeleteVpc`
+- `ec2:CreateSubnet`
+- `ec2:DeleteSubnet`
+- `ec2:CreateRouteTable`
+- `ec2:DeleteRouteTable`
+- `ec2:CreateRoute`
+- `ec2:ReplaceRoute`
+- `ec2:DeleteRoute`
+- `ec2:AssociateRouteTable`
+- `ec2:DisassociateRouteTable`
+- `ec2:CreateInternetGateway`
+- `ec2:AttachInternetGateway`
+- `ec2:DetachInternetGateway`
+- `ec2:DeleteInternetGateway`
+- `ec2:AllocateAddress`
+- `ec2:ReleaseAddress`
+- `ec2:CreateNatGateway`
+- `ec2:DeleteNatGateway`
+- `ec2:CreateSecurityGroup`
+- `ec2:DeleteSecurityGroup`
+- `ec2:AuthorizeSecurityGroupIngress`
+- `ec2:RevokeSecurityGroupIngress`
+- `ec2:AuthorizeSecurityGroupEgress`
+- `ec2:RevokeSecurityGroupEgress`
+- `ec2:RunInstances`
+- `ec2:TerminateInstances`
+- `ec2:DescribeInstances`
+- `ec2:CreateTags`
+- `ec2:DeleteTags`
+- `iam:CreateRole`
+- `iam:DeleteRole`
+- `iam:GetRole`
+- `iam:PassRole`
+- `iam:CreatePolicy`
+- `iam:DeletePolicy`
+- `iam:GetPolicy`
+- `iam:GetPolicyVersion`
+- `iam:CreateInstanceProfile`
+- `iam:DeleteInstanceProfile`
+- `iam:GetInstanceProfile`
+- `iam:AddRoleToInstanceProfile`
+- `iam:RemoveRoleFromInstanceProfile`
+- `iam:AttachRolePolicy`
+- `iam:DetachRolePolicy`
+- `secretsmanager:CreateSecret`
+- `secretsmanager:DeleteSecret`
+- `secretsmanager:DescribeSecret`
+- `secretsmanager:PutSecretValue`
+- `secretsmanager:UpdateSecret`
+- `secretsmanager:TagResource`
+- `secretsmanager:UntagResource`
 
-This phase provisions VPC, security controls, IAM, EC2, and Secrets Manager containers.
-
-Required AWS API access includes:
-
-- EC2 and networking management for VPC/subnet/routing/NAT/security group/instance operations.
-- IAM role, policy, and instance profile management for the EC2 host role.
-- Secrets Manager secret and secret version management.
-- Read access used by data sources (for example, Availability Zones and AMI discovery).
-
-In practice, this is commonly delivered with:
-
-- A deployment role trusted by HCP Terraform Dynamic Provider Credentials.
-- Permission boundaries and SCPs that allow required EC2, IAM, and Secrets Manager actions in the target account.
-
-#### Deployment 2: HCP Terraform Agent Runtime Automation
-
-This phase creates HCP Terraform agent pool and tokens, stores tokens in Secrets Manager, and boots runtime services on EC2.
-
-Required AWS API access includes:
-
-- Secrets Manager write access for storing generated agent tokens.
-- EC2 instance configuration support for user data execution and instance profile attachment.
-
-Required HCP Terraform API access includes:
-
-- Agent pool creation and management in the target organization.
-- Agent token creation for each configured agent.
-
-### EC2 Runtime Permissions (instance profile)
-
-The EC2 instance role requires only:
+The EC2 instance profile used at runtime requires:
 
 - `secretsmanager:GetSecretValue`
 - `secretsmanager:DescribeSecret`
 - `AmazonSSMManagedInstanceCore` managed policy for SSM administration.
+
+### Terraform (TFE) Permissions
+
+For HCP Terraform resources managed by the `tfe` provider (`tfe_agent_pool` and `tfe_agent_token`), the token in `TFE_TOKEN` must have `Manage agent pools` access in the target organization.
 
 ## Authentications
 
@@ -122,5 +150,3 @@ Optional (when using a non-default hostname):
 ```bash
 export TFE_HOSTNAME="app.terraform.io"
 ```
-
-
