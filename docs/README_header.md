@@ -48,6 +48,27 @@ This demo provisions a secure AWS environment to run HCP Terraform agents on a s
 4. Run `terraform init`, `terraform plan`, and `terraform apply`.
 5. Validate outputs (instance details, pool id, and token secret identifiers).
 6. Connect through SSM Session Manager and verify running `tfc-agent-*` services.
+7. Demonstrate token revocation by revoking one agent token in HCP Terraform, then show that the compromised token can no longer register/connect.
+
+## Agent Operations Reference
+
+To see the status of the agents in case of troubleshooting, use the following commands.
+
+### Check agent status (example with 3 agents)
+
+```bash
+sudo systemctl status tfc-agent-1
+sudo systemctl status tfc-agent-2
+sudo systemctl status tfc-agent-3
+```
+
+## Security Demo: Revoke a Compromised Token
+
+1. Identify one agent token in the HCP Terraform agent pool (for example, `agent-3`) and revoke it.
+2. On the EC2 host, restart the corresponding service: `sudo systemctl restart tfc-agent-3`.
+3. Verify the service logs/status show authentication failure or inability to register.
+4. Confirm in HCP Terraform that the revoked token no longer produces a healthy connected agent.
+5. Rotate by creating a replacement token and updating the corresponding AWS Secrets Manager secret value.
 
 ## Expected Behavior
 
