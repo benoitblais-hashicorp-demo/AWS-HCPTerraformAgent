@@ -125,20 +125,20 @@ The EC2 instance profile used at runtime requires:
 - `secretsmanager:DescribeSecret`
 - `AmazonSSMManagedInstanceCore` managed policy for SSM administration.
 
-### Terraform (TFE) Permissions
+### HCP Terraform Permissions
 
-For HCP Terraform resources managed by the `tfe` provider (`tfe_agent_pool` and `tfe_agent_token`), the token in `TFE_TOKEN` must have `Manage agent pools` access in the target organization.
+To manage the resources from this code, provide a token from an account with `Manage agent pools` permissions. Alternatively, you can use a token from a team instead of a user token.
 
 ## Authentications
 
-### AWS Provider Authentication
+### AWS Authentication
 
 AWS authentication is expected to use HCP Terraform Dynamic Provider Credentials (OIDC role assumption).
 
 - Configure the HCP Terraform workspace to assume an AWS IAM role.
 - Do not use long-lived static AWS credentials for normal runs.
 
-### Terraform (TFE) Provider Authentication
+### HCP Terraform Authentication
 
 The TFE provider authenticates with the `TFE_TOKEN` environment variable.
 
@@ -160,7 +160,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.7.0)
 
-- <a name="requirement_aws"></a> [aws](#requirement\_aws) (~> 6.0)
+- <a name="requirement_aws"></a> [aws](#requirement\_aws) (~> 5.79)
 
 - <a name="requirement_tfe"></a> [tfe](#requirement\_tfe) (~> 0.66)
 
