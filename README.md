@@ -252,9 +252,9 @@ Default: `"demo"`
 
 ### <a name="input_management_cidrs"></a> [management\_cidrs](#input\_management\_cidrs)
 
-Description: (Optional) CIDR blocks allowed for SSH management. Leave empty to disable SSH ingress.
+Description: (Optional) CIDR block(s) allowed for SSH management. Accepts a single CIDR string or a list of CIDRs. Leave empty to disable SSH ingress.
 
-Type: `list(string)`
+Type: `any`
 
 Default: `[]`
 
