@@ -126,7 +126,7 @@ The EC2 instance profile used at runtime requires:
 
 ### HCP Terraform Permissions
 
-To manage the resources from this code, provide a token from an account with `Manage agent pools` permissions. Alternatively, you can use a token from a team instead of a user token.
+To manage the resources from this code, provide a token from an account with `Manage agent pools` and `View all workspaces` permissions. Alternatively, you can use a token from a team instead of a user token.
 
 ## Authentications
 
