@@ -1,6 +1,12 @@
 locals {
   agent_names = [for index in range(var.agent_count) : "agent-${index + 1}"]
 
+  management_cidrs = (
+    can(tolist(var.management_cidrs))
+    ? [for cidr in tolist(var.management_cidrs) : trimspace(tostring(cidr)) if trimspace(tostring(cidr)) != ""]
+    : (trimspace(tostring(var.management_cidrs)) == "" ? [] : [trimspace(tostring(var.management_cidrs))])
+  )
+
   agent_secret_ids = {
     for agent_name in local.agent_names :
     agent_name => "${trimsuffix(var.tfc_agent_token_secret_prefix, "/")}/${agent_name}/token"
@@ -77,8 +83,8 @@ module "agent_host_sg" {
   description = "Security group for HCP Terraform agent host"
   vpc_id      = module.vpc.vpc_id
 
-  ingress_with_cidr_blocks = length(var.management_cidrs) > 0 ? [
-    for cidr in var.management_cidrs : {
+  ingress_with_cidr_blocks = length(local.management_cidrs) > 0 ? [
+    for cidr in local.management_cidrs : {
       from_port   = 22
       to_port     = 22
       protocol    = "tcp"

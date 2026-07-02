@@ -72,13 +72,17 @@ variable "environment" {
 }
 
 variable "management_cidrs" {
-  description = "(Optional) CIDR blocks allowed for SSH management. Leave empty to disable SSH ingress."
-  type        = list(string)
+  description = "(Optional) CIDR block(s) allowed for SSH management. Accepts a single CIDR string or a list of CIDRs. Leave empty to disable SSH ingress."
+  type        = any
   default     = []
 
   validation {
-    condition     = alltrue([for cidr in var.management_cidrs : can(cidrhost(cidr, 0))])
-    error_message = "All management_cidrs values must be valid CIDR blocks."
+    condition = (
+      can(tolist(var.management_cidrs))
+      ? alltrue([for cidr in tolist(var.management_cidrs) : can(cidrhost(trimspace(tostring(cidr)), 0))])
+      : (trimspace(tostring(var.management_cidrs)) == "" || can(cidrhost(trimspace(tostring(var.management_cidrs)), 0)))
+    )
+    error_message = "management_cidrs must be a valid CIDR string or a list of valid CIDR strings."
   }
 }
 
