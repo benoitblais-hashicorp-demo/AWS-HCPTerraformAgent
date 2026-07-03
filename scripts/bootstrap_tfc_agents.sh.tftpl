@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y \
+    ca-certificates \
+    curl \
+    git \
+    gzip \
+    jq \
+    openssh-client \
+    tar \
+    unzip \
+    wget
+  apt-get upgrade -y
+elif command -v dnf >/dev/null 2>&1; then
+  dnf makecache -y
+  dnf install -y \
+    ca-certificates \
+    curl \
+    git \
+    gzip \
+    jq \
+    openssh-clients \
+    tar \
+    unzip \
+    wget
+  dnf upgrade -y
+fi
+
+ARCH="$(uname -m)"
+case "$${ARCH}" in
+  x86_64)
+    AGENT_ARCH="amd64"
+    ;;
+  aarch64|arm64)
+    AGENT_ARCH="arm64"
+    ;;
+  *)
+    echo "Unsupported architecture: $${ARCH}"
+    exit 1
+    ;;
+esac
+
+AGENT_VERSION="${tfc_agent_version}"
+
+if [[ "$${AGENT_VERSION}" == "latest" ]]; then
+  RESOLVED_AGENT_VERSION="$(curl -fsSL "https://checkpoint-api.hashicorp.com/v1/check/tfc-agent" | jq -r '.current_version // empty' || true)"
+  if [[ -n "$${RESOLVED_AGENT_VERSION}" ]]; then
+    AGENT_VERSION="$${RESOLVED_AGENT_VERSION}"
+  else
+    echo "Could not resolve latest tfc-agent version from checkpoint API, falling back to 1.21.0"
+    AGENT_VERSION="1.21.0"
+  fi
+fi
+
+AGENT_ZIP="tfc-agent_$${AGENT_VERSION}_linux_$${AGENT_ARCH}.zip"
+AGENT_URL="https://releases.hashicorp.com/tfc-agent/$${AGENT_VERSION}/$${AGENT_ZIP}"
+
+curl -fsSL -o "/tmp/$${AGENT_ZIP}" "$${AGENT_URL}"
+unzip -o "/tmp/$${AGENT_ZIP}" -d /usr/local/bin
+chmod +x /usr/local/bin/tfc-agent
+rm -f "/tmp/$${AGENT_ZIP}"
+
+if ! id -u "${tfc_agent_run_user}" >/dev/null 2>&1; then
+  useradd --create-home --shell /bin/bash "${tfc_agent_run_user}"
+fi
+
+mkdir -p /opt/hcp-terraform-agent
+mkdir -p /var/log/hcp-terraform-agent
+mkdir -p /var/lib/tfc-agent
+chown -R "${tfc_agent_run_user}:${tfc_agent_run_user}" /opt/hcp-terraform-agent /var/log/hcp-terraform-agent /var/lib/tfc-agent
+chmod 0755 /opt/hcp-terraform-agent /var/log/hcp-terraform-agent /var/lib/tfc-agent
+
+cat > /usr/local/bin/start-tfc-agent.sh <<'EOF_START'
+#!/usr/bin/env bash
+set -euo pipefail
+
+AGENT_NAME="$1"
+if [[ -z "$${AGENT_NAME}" ]]; then
+  echo "Usage: $0 <agent-name>"
+  exit 1
+fi
+
+SECRET_ID="${tfc_agent_token_secret_prefix}/$${AGENT_NAME}/token"
+TOKEN="$(aws secretsmanager get-secret-value --secret-id "$${SECRET_ID}" --query SecretString --output text --region "${aws_region}")"
+
+export TFC_AGENT_TOKEN="$${TOKEN}"
+export TFC_AGENT_NAME="$${AGENT_NAME}"
+export TFC_AGENT_DATA_DIR="/var/lib/tfc-agent/$${AGENT_NAME}"
+
+mkdir -p "$${TFC_AGENT_DATA_DIR}"
+chown "${tfc_agent_run_user}:${tfc_agent_run_user}" "$${TFC_AGENT_DATA_DIR}"
+
+exec /usr/local/bin/tfc-agent
+EOF_START
+
+chmod +x /usr/local/bin/start-tfc-agent.sh
+
+for AGENT_INDEX in $(seq 1 ${agent_count}); do
+  AGENT_NAME="agent-$${AGENT_INDEX}"
+  SERVICE_FILE="/etc/systemd/system/tfc-agent-$${AGENT_INDEX}.service"
+
+  cat > "$${SERVICE_FILE}" <<EOF_SERVICE
+[Unit]
+Description=HCP Terraform Agent $${AGENT_INDEX}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${tfc_agent_run_user}
+Environment=AWS_REGION=${aws_region}
+ExecStart=/usr/local/bin/start-tfc-agent.sh $${AGENT_NAME}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF_SERVICE
+
+done
+
+systemctl daemon-reload
+
+for AGENT_INDEX in $(seq 1 ${agent_count}); do
+  systemctl enable "tfc-agent-$${AGENT_INDEX}.service"
+  systemctl restart "tfc-agent-$${AGENT_INDEX}.service"
+done
